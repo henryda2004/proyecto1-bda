@@ -1,0 +1,15 @@
+.env
+*.log
+
+*.aux
+*.log
+*.out
+*.toc
+*.synctex.gz
+*.fdb_latexmk
+*.fls
+
+__pycache__/
+*.pyc
+
+.DS_Store
