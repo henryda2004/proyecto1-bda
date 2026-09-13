@@ -75,9 +75,9 @@ SELECT
 FROM producto p
 CROSS JOIN (
     VALUES
-        ('cr-sj'::crdb_internal_region),
-        ('cr-limon'::crdb_internal_region),
-        ('us-east'::crdb_internal_region)
+        ('tienda-a'::crdb_internal_region),
+        ('tienda-b'::crdb_internal_region),
+        ('cd-central'::crdb_internal_region)
 ) AS r(region);
 
 -- Orders: 100 per region (sharded by region)
