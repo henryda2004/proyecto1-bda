@@ -1,0 +1,43 @@
+========================================
+ TI-4601 - Proyecto 1
+ E2 - SHOW CREATE TABLE
+ Fecha: 2026-09-14 23:14:40
+========================================
+
+===== producto =====
+
+table_name	create_statement
+producto	"CREATE TABLE public.producto (
+	codproducto UUID NOT NULL DEFAULT gen_random_uuid(),
+	nombre STRING NOT NULL,
+	precio DECIMAL(12,2) NOT NULL,
+	CONSTRAINT producto_pkey PRIMARY KEY (codproducto ASC),
+	CONSTRAINT check_precio CHECK (precio >= 0:::DECIMAL)
+) LOCALITY GLOBAL"
+
+===== stock =====
+
+table_name	create_statement
+stock	"CREATE TABLE public.stock (
+	region public.crdb_internal_region NOT NULL,
+	codproducto UUID NOT NULL,
+	unidades INT8 NOT NULL,
+	CONSTRAINT stock_pkey PRIMARY KEY (region ASC, codproducto ASC),
+	CONSTRAINT stock_codproducto_fkey FOREIGN KEY (codproducto) REFERENCES public.producto(codproducto),
+	CONSTRAINT check_unidades CHECK (unidades >= 0:::INT8)
+) LOCALITY REGIONAL BY ROW AS region"
+
+===== pedido =====
+
+table_name	create_statement
+pedido	"CREATE TABLE public.pedido (
+	region public.crdb_internal_region NOT NULL,
+	codpedido UUID NOT NULL DEFAULT gen_random_uuid(),
+	codproducto UUID NOT NULL,
+	codcliente STRING NOT NULL,
+	unidades INT8 NOT NULL,
+	fecha TIMESTAMPTZ NOT NULL DEFAULT now():::TIMESTAMPTZ,
+	CONSTRAINT pedido_pkey PRIMARY KEY (region ASC, codpedido ASC),
+	CONSTRAINT pedido_codproducto_fkey FOREIGN KEY (codproducto) REFERENCES public.producto(codproducto),
+	CONSTRAINT check_unidades CHECK (unidades > 0:::INT8)
+) LOCALITY REGIONAL BY ROW AS region"
