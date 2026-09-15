@@ -30,86 +30,138 @@
 | `sql/regions.sql` | Configura la base como multi-región. Se corre antes del schema |
 | `sql/schema.sql` | Crea las tres tablas. `producto` es GLOBAL, `stock` y `pedido` son REGIONAL BY ROW |
 | `sql/seed.sql` | Carga 10 productos, 30 filas de stock y 300 pedidos |
+| `scripts/setup.sh` | Elimina un clúster si existía uno, luego vuelve a levantar y configurar el clúster, crea las tablas, carga los datos y genera la evidencia de E2 |
+| `evidence/verification.txt` | Evidencia de la cantidad de pedidos por región |
+| `evidence/show_create.txt` | Evidencia de la configuración de localidad de las tablas mediante `SHOW CREATE TABLE` |
+| `evidence/show_ranges.txt` | Evidencia de la distribución de rangos y réplicas mediante `SHOW RANGES` |
 
 ---
 
 ## Cómo levantar el proyecto
 
-Requiere Docker y Docker Compose instalados.
-
-**1. Levantar el clúster**
+Se ejecuta el script de configuración:
 
 ```bash
-docker compose --profile lab1 up -d
+./scripts/setup.sh
 ```
 
-**2. Crear la base de datos**
+El script realiza automáticamente los siguientes pasos:
+1. Se eliminan los contenedores y volúmenes del clúster, para realizar una configuración limpia y reproducible del laboratorio.
+2. Levanta los tres nodos de CockroachDB.
+3. Espera hasta que CockroachDB esté disponible.
+3. Configura las regiones de la base de datos.
+4. Crea las tablas del esquema.
+5. Carga los datos de prueba.
+6. Verifica la cantidad de pedidos por región.
+7. Genera automáticamente la evidencia de E2.
 
-```bash
-docker exec -it ti4601-crdb-1 cockroach sql --insecure --host=crdb-1 \
-  -e "CREATE DATABASE IF NOT EXISTS ti4601;"
+Al finalizar, debe aparecer una distribución de:
+
+```text
+region      count
+cd-central  100
+tienda-a    100
+tienda-b    100
 ```
 
-**3. Configurar las regiones**
+Por lo tanto, se cargan 300 pedidos en total, con 100 pedidos asociados a cada región.
 
-```bash
-docker exec -i ti4601-crdb-1 cockroach sql --insecure --host=crdb-1 \
-  --database=ti4601 < sql/regions.sql
+
+### Evidencia de E2
+
+La ejecución de `setup.sh` genera tres archivos dentro de `evidence/`:
+
+```text
+evidence/
+├── show_create.txt
+├── show_ranges.txt
+└── verification.txt
 ```
 
-**4. Crear las tablas**
+#### `show_create.txt`
 
-```bash
-docker exec -i ti4601-crdb-1 cockroach sql --insecure --host=crdb-1 \
-  --database=ti4601 < sql/schema.sql
+Contiene la salida de `SHOW CREATE TABLE` para las tres tablas.
+
+La evidencia confirma que:
+
+- `producto` utiliza `LOCALITY GLOBAL`.
+- `stock` utiliza `LOCALITY REGIONAL BY ROW AS region`.
+- `pedido` utiliza `LOCALITY REGIONAL BY ROW AS region`.
+
+Esto permite verificar que la localidad definida en el diseño fue implementada en el esquema de CockroachDB.
+
+#### `show_ranges.txt`
+
+Contiene la salida de:
+
+```sql
+SHOW RANGES FROM TABLE producto;
+SHOW RANGES FROM TABLE stock;
+SHOW RANGES FROM TABLE pedido;
 ```
 
-**5. Cargar los datos**
+La salida permite observar las réplicas y sus localidades. En la ejecución actual se observan réplicas asociadas a:
 
-```bash
-docker cp sql/seed.sql ti4601-crdb-1:/tmp/seed.sql
-docker exec -it ti4601-crdb-1 cockroach sql --insecure --host=crdb-1 \
-  --database=ti4601 -f /tmp/seed.sql
+```text
+region=tienda-a,zone=a
+region=tienda-b,zone=a
+region=cd-central,zone=a
 ```
 
-**6. Verificar**
+para los rangos mostrados.
 
-```bash
-docker exec -it ti4601-crdb-1 cockroach sql --insecure --host=crdb-1 \
-  --database=ti4601 -e "SELECT region, count(*) FROM pedido GROUP BY region;"
+#### `verification.txt`
+
+Contiene la verificación de los pedidos cargados:
+
+```text
+cd-central  100
+tienda-a    100
+tienda-b    100
 ```
 
-Debe mostrar 100 pedidos por región.
+Esta evidencia comprueba que los datos de prueba fueron cargados correctamente en las tres regiones.
 
-**Para apagar todo:**
+---
+
+## Para apagar todo
+
+Para detener los contenedores sin eliminar los volúmenes:
 
 ```bash
 docker compose --profile lab1 down
+```
+
+Para realizar nuevamente una configuración completamente limpia:
+
+```bash
+./scripts/setup.sh
 ```
 
 ---
 
 ## Estado actual
 
-Funciona:
+Implementado para E2:
 
-- Clúster de tres nodos con las regiones del dominio
-- Las tres tablas creadas con sus localidades
-- Datos cargados y distribuidos correctamente por región
-- `SHOW RANGES` confirma que cada región tiene su leaseholder en su propio nodo
-
-Nota sobre subreplicación: los rangos REGIONAL BY ROW aparecen con dos réplicas
-en lugar de tres. Es comportamiento esperado en un clúster con un solo nodo por
-región, documentado en el laboratorio 1 del curso. No impide el funcionamiento.
+- Clúster de tres nodos de CockroachDB.
+- Tres regiones configuradas:
+  - `tienda-a` → `crdb-1`
+  - `tienda-b` → `crdb-2`
+  - `cd-central` → `crdb-3`
+- `producto` implementada como tabla `GLOBAL`.
+- `stock` implementada como `REGIONAL BY ROW AS region`.
+- `pedido` implementada como `REGIONAL BY ROW AS region`.
+- 10 productos cargados.
+- 30 filas de stock cargadas.
+- 300 pedidos cargados, 100 por región.
+- `SHOW CREATE TABLE` confirma la localidad configurada en cada tabla.
+- `SHOW RANGES` permite verificar la distribución de réplicas y sus localidades.
+- El procedimiento completo de configuración y generación de evidencia está automatizado mediante `scripts/setup.sh`.
 
 ---
 
 ## Pendientes
-
-**E2 — Implementación**
-- Script reproducible de configuración que automatice los pasos 2 a 5
-- Recolectar evidencia formal de `SHOW RANGES` y `SHOW CREATE TABLE` en `evidence/`
-
 **E3 — Mediciones**
 - Script de medición de latencia sobre las operaciones del dominio
 - 30 corridas mínimo por cada caso: lectura local, lectura remota, escritura local, escritura que cruza región
