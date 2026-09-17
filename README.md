@@ -34,6 +34,9 @@
 | `evidence/verification.txt` | Evidencia de la cantidad de pedidos por región |
 | `evidence/show_create.txt` | Evidencia de la configuración de localidad de las tablas mediante `SHOW CREATE TABLE` |
 | `evidence/show_ranges.txt` | Evidencia de la distribución de rangos y réplicas mediante `SHOW RANGES` |
+| `scripts/measure_e3.py` | Ejecuta las cuatro mediciones de latencia y calcula p50 y p99 |
+| `scripts/measure_e3.sh` | Verifica el clúster y ejecuta automáticamente las mediciones de E3 |
+| `evidence/e3_metrics.csv` | Guarda los resultados de las mediciones de E3 |
 
 ---
 
@@ -49,11 +52,11 @@ El script realiza automáticamente los siguientes pasos:
 1. Se eliminan los contenedores y volúmenes del clúster, para realizar una configuración limpia y reproducible del laboratorio.
 2. Levanta los tres nodos de CockroachDB.
 3. Espera hasta que CockroachDB esté disponible.
-3. Configura las regiones de la base de datos.
-4. Crea las tablas del esquema.
-5. Carga los datos de prueba.
-6. Verifica la cantidad de pedidos por región.
-7. Genera automáticamente la evidencia de E2.
+4. Configura las regiones de la base de datos.
+5. Crea las tablas del esquema.
+6. Carga los datos de prueba.
+7. Verifica la cantidad de pedidos por región.
+8. Genera automáticamente la evidencia de E2.
 
 Al finalizar, debe aparecer una distribución de:
 
@@ -124,6 +127,35 @@ Esta evidencia comprueba que los datos de prueba fueron cargados correctamente e
 
 ---
 
+## Mediciones de E3
+
+Con el clúster configurado, las mediciones se ejecutan con:
+
+```bash
+bash scripts/measure_e3.sh
+```
+
+El script realiza 10 corridas de calentamiento y 30 corridas válidas para cada caso:
+
+- Lectura local en `tienda-a`.
+- Lectura remota desde `tienda-a` hacia `tienda-b`.
+- Escritura local en `tienda-a`.
+- Escritura que cruza desde `tienda-a` hacia `tienda-b`.
+
+Los resultados de p50 y p99 se guardan en `evidence/e3_metrics.csv`.
+
+### Resultados obtenidos
+
+| Operación | Desde región | p50 (ms) | p99 (ms) | Corridas | Notas |
+| --- | --- | ---: | ---: | ---: | --- |
+| Lectura local | R1 → R1 | 2.398 | 2.801 | 30 | Fila ubicada en `tienda-a` |
+| Lectura remota | R1 → R2 | 2.432 | 3.091 | 30 | Fila ubicada en `tienda-b` |
+| Escritura local | R1 → R1 | 26.624 | 99.350 | 30 | Actualización en `tienda-a` |
+| Escritura que cruza región | R1 → R2 | 28.858 | 63.727 | 30 | Actualización en `tienda-b` |
+
+---
+
+
 ## Para apagar todo
 
 Para detener los contenedores sin eliminar los volúmenes:
@@ -159,13 +191,20 @@ Implementado para E2:
 - `SHOW RANGES` permite verificar la distribución de réplicas y sus localidades.
 - El procedimiento completo de configuración y generación de evidencia está automatizado mediante `scripts/setup.sh`.
 
+
+Implementado para E3:
+
+- Script automatizado para ejecutar las mediciones.
+- Lectura local y lectura remota.
+- Escritura local y escritura que cruza región.
+- 10 corridas de calentamiento.
+- 30 corridas válidas por caso.
+- Cálculo de p50 y p99.
+- Resultados almacenados en `evidence/e3_metrics.csv`.
+
 ---
 
 ## Pendientes
-**E3 — Mediciones**
-- Script de medición de latencia sobre las operaciones del dominio
-- 30 corridas mínimo por cada caso: lectura local, lectura remota, escritura local, escritura que cruza región
-- Tabla con p50, p99 y metodología documentada
 
 **E4 — Falla de sitio**
 - Crear una tabla de control con RF=3 real, necesaria porque los rangos RBR están subreplicados
