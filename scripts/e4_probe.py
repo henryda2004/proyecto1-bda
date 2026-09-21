@@ -12,11 +12,11 @@ from pathlib import Path
 
 import psycopg
 
-
+#devuelve la fecha y hora actual 
 def utc_now() -> str:
     return datetime.now(timezone.utc).isoformat(timespec="milliseconds")
 
-
+#Abre la conexión corta con CockroachDB
 def connect() -> psycopg.Connection:
     return psycopg.connect(
         connect_timeout=2,
@@ -24,7 +24,7 @@ def connect() -> psycopg.Connection:
         autocommit=True,
     )
 
-
+#Incremento de la versión de la fila usada como prueba 
 def write_once() -> None:
     with connect() as conn:
         updated = conn.execute(
@@ -41,7 +41,7 @@ def write_once() -> None:
                 "No existe e4_probe; ejecute primero sql/e4_probe.sql"
             )
 
-
+#Lee en el momento que el nodo se detiene
 def read_signal(path: Path) -> float | None:
     try:
         return float(path.read_text(encoding="utf-8").strip())
@@ -75,7 +75,9 @@ def main() -> int:
     print(f"PGHOST={os.environ.get('PGHOST')}")
     print("Fila objetivo: ti4601_e4.public.e4_probe(id=1), RF=3")
     print(f"Señal de falla: {signal_path}")
-
+    
+    
+    #realiza escrituras en el tiempo indicado. 
     while time.time() - started < args.duration:
         attempt_started = time.time()
         perf_started = time.perf_counter_ns()
@@ -97,6 +99,8 @@ def main() -> int:
 
         phase = "before-stop"
 
+
+        #Después de la señal se registra la recuperación 
         if signal_at is not None and completed_at >= signal_at:
             phase = "after-stop"
 
@@ -125,6 +129,8 @@ def main() -> int:
         elapsed = time.time() - attempt_started
         time.sleep(max(0.0, args.interval - elapsed))
 
+
+    #Muestras para el cálculo y comprobación del RTO
     with output_path.open(
         "w", newline="", encoding="utf-8"
     ) as handle:
