@@ -35,6 +35,14 @@
 | `evidence/show_create.txt` | Evidencia de la configuración de localidad de las tablas mediante `SHOW CREATE TABLE` |
 | `evidence/show_ranges.txt` | Evidencia de la distribución de rangos y réplicas mediante `SHOW RANGES` |
 
+| `sql/e4_probe.sql` | Crea la tabla de control de E4 con tres réplicas votantes |
+| `scripts/e4_probe.py` | Ejecuta escrituras continuas y calcula el RTO después de detener un nodo |
+| `evidence/e4-chaos.csv` | Guarda cada intento de escritura, su timestamp, estado y latencia |
+| `evidence/e4-probe.txt` | Contiene la salida completa de la prueba y el RTO observado |
+| `evidence/e4-stop.txt` | Registra los timestamps de la detención de `crdb-2` |
+| `evidence/e4-rpo.txt` | Verifica la fila final utilizada para determinar el RPO |
+
+
 ---
 
 ## Cómo levantar el proyecto
@@ -123,6 +131,93 @@ tienda-b    100
 Esta evidencia comprueba que los datos de prueba fueron cargados correctamente en las tres regiones.
 
 ---
+### Fallo de sitio, E4
+Para esta prueba se utilizó la tabla de control `e4_probe`, almacenada en la base de datos `ti4601_e4`. La tabla se configuró con tres réplicas votantes, una en cada nodo,para el caso en la que un n nodo falle.
+
+La falla de sitio se simuló deteniendo el contenedor `crdb-2`, correspondiente a la región `tienda-b`. Antes de ejecutar la prueba, se verificó que el rango tuviera las réplicas `{1,2,3}` y que el nodo 2 fuera el poseedor del lease.
+
+### Preparación
+
+La tabla de control se crea con:
+
+```bash
+docker compose exec -T crdb-1 ./cockroach sql \
+  --insecure \
+  --host=crdb-1 \
+  < sql/e4_probe.sql
+```
+
+La distribución de las réplicas se consulta con:
+
+```bash
+docker compose exec -T crdb-1 ./cockroach sql \
+  --insecure \
+  --database=ti4601_e4 \
+  -e "SELECT range_id, lease_holder, voting_replicas FROM [SHOW RANGES FROM TABLE e4_probe WITH DETAILS];"
+```
+
+En la ejecución realizada, el rango utilizado fue el número 100. El lease se colocó en el nodo 2 mediante:
+
+```bash
+docker compose exec -T crdb-1 ./cockroach sql \
+  --insecure \
+  --database=ti4601_e4 \
+  -e "ALTER RANGE 100 RELOCATE LEASE TO 2;"
+```
+
+Si el identificador del rango cambia después de reconstruir el clúster, debe utilizarse el valor mostrado por `SHOW RANGES`.
+
+### Ejecución
+
+En una primera terminal se ejecuta la sonda de escrituras:
+
+```bash
+rm -f evidence/e4-stop.epoch
+
+docker compose --profile lab1 run --rm --no-deps \
+  -e PGDATABASE=ti4601_e4 \
+  app-crdb python -u scripts/e4_probe.py \
+  --duration 60 \
+  --interval 0.5 \
+  --signal-file evidence/e4-stop.epoch \
+  --csv evidence/e4-chaos.csv \
+  | tee evidence/e4-probe.txt
+```
+
+Mientras la sonda realiza escrituras, en una segunda terminal se detiene el nodo:
+
+```bash
+echo "Inicio de la falla: $(date -Iseconds)" \
+  | tee evidence/e4-stop.txt
+
+docker compose --profile lab1 stop -t 0 crdb-2 2>&1 \
+  | tee -a evidence/e4-stop.txt
+
+date +%s.%N > evidence/e4-stop.epoch
+
+echo "Nodo detenido: $(date -Iseconds)" \
+  | tee -a evidence/e4-stop.txt
+```
+
+Después de finalizar la sonda, se verifica que la última escritura confirmada siga almacenada:
+
+```bash
+echo "Verificación de RPO: $(date -Iseconds)" \
+  | tee evidence/e4-rpo.txt
+
+docker compose exec -T crdb-1 ./cockroach sql \
+  --insecure \
+  --database=ti4601_e4 \
+  -e "SELECT id, version, updated_at FROM e4_probe;" \
+  | tee -a evidence/e4-rpo.txt
+```
+
+Finalmente, se vuelve a levantar el nodo y se elimina el archivo temporal de señal:
+
+```bash
+docker compose --profile lab1 start crdb-2
+rm -f evidence/e4-stop.epoch
+```
 
 ## Para apagar todo
 
@@ -159,6 +254,16 @@ Implementado para E2:
 - `SHOW RANGES` permite verificar la distribución de réplicas y sus localidades.
 - El procedimiento completo de configuración y generación de evidencia está automatizado mediante `scripts/setup.sh`.
 
+
+Implementado para E4:
+
+- Tabla de control con tres réplicas votantes.
+- Falla simulada mediante la detención de `crdb-2`.
+- Sonda de escrituras continuas con timestamps.
+- RTO observado de aproximadamente 12.0 segundos.
+- RPO observado de cero.
+- Evidencia de la detención, recuperación y conservación de la última escritura confirmada.
+
 ---
 
 ## Pendientes
@@ -167,10 +272,6 @@ Implementado para E2:
 - 30 corridas mínimo por cada caso: lectura local, lectura remota, escritura local, escritura que cruza región
 - Tabla con p50, p99 y metodología documentada
 
-**E4 — Falla de sitio**
-- Crear una tabla de control con RF=3 real, necesaria porque los rangos RBR están subreplicados
-- Script que orqueste la caída de un nodo
-- Bitácora con timestamps, RTO observado y discusión de RPO
 
 **E5 — Crítica**
 - Comparación contra la alternativa de un nodo primario con réplica de lectura
