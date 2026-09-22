@@ -1,0 +1,38 @@
+=== Proyecto 1 - sonda E4 ===
+PGHOST=crdb-1,crdb-2,crdb-3
+Fila objetivo: ti4601_e4.public.e4_probe(id=1), RF=3
+Señal de falla: evidence/e4-stop.epoch
+2026-09-21T16:47:40.094+00:00 before-stop ok      21.822 ms 
+2026-09-21T16:47:40.598+00:00 before-stop ok      24.824 ms 
+2026-09-21T16:47:41.099+00:00 before-stop ok      24.880 ms 
+2026-09-21T16:47:41.584+00:00 before-stop ok      10.144 ms 
+2026-09-21T16:47:42.087+00:00 before-stop ok      11.237 ms 
+2026-09-21T16:47:42.584+00:00 before-stop ok       9.861 ms 
+2026-09-21T16:47:43.087+00:00 before-stop ok      10.608 ms 
+2026-09-21T16:47:43.586+00:00 before-stop ok      11.061 ms 
+2026-09-21T16:47:44.130+00:00 before-stop ok      55.536 ms 
+2026-09-21T16:47:44.655+00:00 before-stop ok      79.861 ms 
+2026-09-21T16:47:45.099+00:00 before-stop ok      23.960 ms 
+2026-09-21T16:47:45.601+00:00 before-stop ok      26.096 ms 
+2026-09-21T16:47:46.103+00:00 before-stop ok      27.439 ms 
+2026-09-21T16:47:46.588+00:00 before-stop ok      11.928 ms 
+2026-09-21T16:47:47.117+00:00 before-stop ok      41.559 ms 
+2026-09-21T16:47:47.605+00:00 before-stop ok      29.114 ms 
+2026-09-21T16:47:48.099+00:00 before-stop ok      22.602 ms 
+2026-09-21T16:47:56.353+00:00 after-stop  error 7773.610 ms QueryCanceled: query execution canceled due to statement timeout
+2026-09-21T16:48:00.384+00:00 after-stop  ok    3994.293 ms 
+2026-09-21T16:48:04.407+00:00 after-stop  ok    4018.640 ms 
+2026-09-21T16:48:08.404+00:00 after-stop  ok    3991.083 ms 
+2026-09-21T16:48:12.388+00:00 after-stop  ok    3978.094 ms 
+2026-09-21T16:48:16.362+00:00 after-stop  ok    3967.715 ms 
+2026-09-21T16:48:20.347+00:00 after-stop  ok    3980.389 ms 
+2026-09-21T16:48:24.312+00:00 after-stop  ok    3960.613 ms 
+2026-09-21T16:48:28.280+00:00 after-stop  ok    3962.213 ms 
+2026-09-21T16:48:32.321+00:00 after-stop  ok    4007.088 ms 
+2026-09-21T16:48:36.321+00:00 after-stop  ok    3995.035 ms 
+2026-09-21T16:48:40.322+00:00 after-stop  ok    3996.300 ms 
+
+Muestras: evidence/e4-chaos.csv
+Errores después de la señal: 1
+RTO observado hasta primer write OK: 12003.4 ms
+El RPO se verifica después: la fila confirmada debe seguir presente y su versión no debe retroceder.

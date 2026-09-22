@@ -1,0 +1,4 @@
+Inicio de la falla: 2026-09-21T10:47:47-06:00
+ Container ti4601-crdb-2 Stopping 
+ Container ti4601-crdb-2 Stopped 
+Nodo detenido: 2026-09-21T10:47:48-06:00
