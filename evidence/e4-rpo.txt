@@ -1,0 +1,3 @@
+Verificación de RPO: 2026-09-21T10:49:57-06:00
+id	version	updated_at
+1	223	2026-09-21 16:48:40.31222+00

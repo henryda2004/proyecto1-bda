@@ -1,7 +1,7 @@
 ========================================
  TI-4601 - Proyecto 1
  E2 - Verificación de datos
- Fecha: 2026-09-14 23:14:40
+ Fecha: 2026-09-15 21:58:26
 ========================================
 
 Cantidad de pedidos por región:
