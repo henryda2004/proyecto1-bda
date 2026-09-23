@@ -1,0 +1,28 @@
+========================================
+ TI-4601 - Proyecto 1
+ E2 - SHOW RANGES
+ Fecha: 2026-09-15 21:58:26
+========================================
+
+===== producto =====
+
+start_key	end_key	range_id	replicas	replica_localities	voting_replicas	non_voting_replicas	learner_replicas	split_enforced_until
+…/<TableMin>	…/<TableMax>	70	{1,2,3}	"{""region=tienda-a,zone=a"",""region=tienda-b,zone=a"",""region=cd-central,zone=a""}"	{1,2,3}	{}	{}	NULL
+
+===== stock =====
+
+start_key	end_key	range_id	replicas	replica_localities	voting_replicas	non_voting_replicas	learner_replicas	split_enforced_until
+…/<TableMin>	"…/1/""@"""	71	{1,2,3}	"{""region=tienda-a,zone=a"",""region=tienda-b,zone=a"",""region=cd-central,zone=a""}"	{1,2,3}	{}	{}	NULL
+"…/1/""@"""	"…/1/""@""/PrefixEnd"	72	{1,2,3}	"{""region=tienda-a,zone=a"",""region=tienda-b,zone=a"",""region=cd-central,zone=a""}"	{1,2,3}	{}	{}	NULL
+"…/1/""@""/PrefixEnd"	"…/1/""\xc0"""	73	{1,2,3}	"{""region=tienda-a,zone=a"",""region=tienda-b,zone=a"",""region=cd-central,zone=a""}"	{1,2,3}	{}	{}	NULL
+"…/1/""\xc0"""	"…/1/""\xc0""/PrefixEnd"	74	{1,2,3}	"{""region=tienda-a,zone=a"",""region=tienda-b,zone=a"",""region=cd-central,zone=a""}"	{1,2,3}	{}	{}	NULL
+"…/1/""\xc0""/PrefixEnd"	"<after:/Table/110/1/""@"">"	75	{1,2,3}	"{""region=tienda-a,zone=a"",""region=tienda-b,zone=a"",""region=cd-central,zone=a""}"	{1,2,3}	{}	{}	NULL
+
+===== pedido =====
+
+start_key	end_key	range_id	replicas	replica_localities	voting_replicas	non_voting_replicas	learner_replicas	split_enforced_until
+"<before:/Table/109/1/""\xc0""/PrefixEnd>"	"…/1/""@"""	75	{1,2,3}	"{""region=tienda-a,zone=a"",""region=tienda-b,zone=a"",""region=cd-central,zone=a""}"	{1,2,3}	{}	{}	NULL
+"…/1/""@"""	"…/1/""@""/PrefixEnd"	76	{1,2,3}	"{""region=tienda-a,zone=a"",""region=tienda-b,zone=a"",""region=cd-central,zone=a""}"	{1,2,3}	{}	{}	NULL
+"…/1/""@""/PrefixEnd"	"…/1/""\xc0"""	77	{1,2,3}	"{""region=tienda-a,zone=a"",""region=tienda-b,zone=a"",""region=cd-central,zone=a""}"	{1,2,3}	{}	{}	NULL
+"…/1/""\xc0"""	"…/1/""\xc0""/PrefixEnd"	78	{1,2,3}	"{""region=tienda-a,zone=a"",""region=tienda-b,zone=a"",""region=cd-central,zone=a""}"	{1,2,3}	{}	{}	NULL
+"…/1/""\xc0""/PrefixEnd"	<after:/Max>	79	{1,2,3}	"{""region=tienda-a,zone=a"",""region=tienda-b,zone=a"",""region=cd-central,zone=a""}"	{1,2,3}	{}	{}	NULL
