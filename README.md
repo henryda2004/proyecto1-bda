@@ -133,6 +133,37 @@ tienda-b    100
 
 Esta evidencia comprueba que los datos de prueba fueron cargados correctamente en las tres regiones.
 
+
+## Mediciones de E3
+
+Con el clúster configurado, las mediciones se ejecutan con:
+
+```bash
+bash scripts/measure_e3.sh
+```
+
+El script realiza 10 corridas de calentamiento y 30 corridas válidas para cada caso:
+
+- Lectura local en `tienda-a`.
+- Lectura remota desde `tienda-a` hacia `tienda-b`.
+- Escritura local en `tienda-a`.
+- Escritura que cruza desde `tienda-a` hacia `tienda-b`.
+
+Los resultados de p50 y p99 se guardan en `evidence/e3_metrics.csv`.
+
+### Resultados obtenidos
+
+| Operación | Desde región | p50 (ms) | p99 (ms) | Corridas | Notas |
+| --- | --- | ---: | ---: | ---: | --- |
+| Lectura local | R1 → R1 | 2.398 | 2.801 | 30 | Fila ubicada en `tienda-a` |
+| Lectura remota | R1 → R2 | 2.432 | 3.091 | 30 | Fila ubicada en `tienda-b` |
+| Escritura local | R1 → R1 | 26.624 | 99.350 | 30 | Actualización en `tienda-a` |
+| Escritura que cruza región | R1 → R2 | 28.858 | 63.727 | 30 | Actualización en `tienda-b` |
+
+---
+
+
+
 ---
 ### Fallo de sitio, E4
 Para esta prueba se utilizó la tabla de control `e4_probe`, almacenada en la base de datos `ti4601_e4`. La tabla se configuró con tres réplicas votantes, una en cada nodo,para el caso en la que un n nodo falle.
@@ -222,34 +253,32 @@ docker compose --profile lab1 start crdb-2
 rm -f evidence/e4-stop.epoch
 ```
 
-## Mediciones de E3
+### Resultados obtenidos 
 
-Con el clúster configurado, las mediciones se ejecutan con:
+| Métrica | Resultado |
+| --- | ---: |
+| Nodo detenido | `crdb-2` |
+| Réplicas votantes | `{1,2,3}` |
+| Errores después de la falla | 1 |
+| RTO observado | 12003.4 ms |
+| RTO aproximado | 12.0 s |
+| Versión final conservada | 223 |
+| RPO observado | 0 |
 
-```bash
-bash scripts/measure_e3.sh
-```
+La falla inició a las `2026-09-21T10:47:47-06:00` y el contenedor `crdb-2` quedó detenido un segundo después. Posteriormente, el clúster volvió a confirmar escrituras utilizando los dos nodos restantes. La primera escritura exitosa después de la señal se registró aproximadamente 12 segundos después. Por esta razón, el RTO observado fue de 12003.4 ms.
 
-El script realiza 10 corridas de calentamiento y 30 corridas válidas para cada caso:
+La consulta final mostró que la fila de control conservó la versión 223 y el timestamp `2026-09-21 16:48:40.31222+00`.
 
-- Lectura local en `tienda-a`.
-- Lectura remota desde `tienda-a` hacia `tienda-b`.
-- Escritura local en `tienda-a`.
-- Escritura que cruza desde `tienda-a` hacia `tienda-b`.
 
-Los resultados de p50 y p99 se guardan en `evidence/e3_metrics.csv`.
+### Evidencias de E4
 
-### Resultados obtenidos
-
-| Operación | Desde región | p50 (ms) | p99 (ms) | Corridas | Notas |
-| --- | --- | ---: | ---: | ---: | --- |
-| Lectura local | R1 → R1 | 2.398 | 2.801 | 30 | Fila ubicada en `tienda-a` |
-| Lectura remota | R1 → R2 | 2.432 | 3.091 | 30 | Fila ubicada en `tienda-b` |
-| Escritura local | R1 → R1 | 26.624 | 99.350 | 30 | Actualización en `tienda-a` |
-| Escritura que cruza región | R1 → R2 | 28.858 | 63.727 | 30 | Actualización en `tienda-b` |
-
----
-
+| Archivo | Contenido |
+| --- | --- |
+| `sql/e4_probe.sql` | Crea la tabla de control y configura tres réplicas votantes |
+| `scripts/e4_probe.py` | Ejecuta escrituras continuas y calcula el RTO |
+| `evidence/e4-probe.txt` | Contiene las escrituras realizadas y el RTO observado |
+| `evidence/e4-stop.txt` | Registra los timestamps de la detención de `crdb-2` |
+| `evidence/e4-rpo.txt` | Verifica la versión final utilizada para determinar el RPO |
 
 ## Para apagar todo
 
@@ -310,11 +339,4 @@ Implementado para E4:
 
 ## Pendientes
 
-
-**E5 — Crítica**
-- Comparación contra la alternativa de un nodo primario con réplica de lectura
-- Conclusión sobre si la distribución estuvo justificada
-
-**Informe**
-- Actualizar el diagrama lógico: `region` ahora es parte de la PK de `pedido`
-- Redactar la justificación de por qué `producto` es GLOBAL y las otras dos RBR
+**Finalizado con éxito. 
