@@ -8,6 +8,8 @@
 
 **Motor:** CockroachDB v24.3.0 (clúster de 3 nodos)
 
+**Repositorio:** https://github.com/henryda2004/proyecto1-bda
+
 ---
 
 ## Regiones
@@ -17,6 +19,12 @@
 | `tienda-a` | crdb-1 | Tienda regional |
 | `tienda-b` | crdb-2 | Tienda regional |
 | `cd-central` | crdb-3 | Centro de distribución |
+
+**Nota:** el ID interno de nodo que asigna CockroachDB (1, 2, 3) puede no
+coincidir con el número del contenedor (crdb-1, crdb-2, crdb-3), porque
+depende del orden en que cada nodo se une al clúster en cada arranque.
+Antes de detener un nodo específico (Entregable 4), verificar con
+`cockroach node status` qué contenedor corresponde a cada ID.
 
 ---
 
@@ -37,23 +45,28 @@
 | `scripts/measure_e3.py` | Ejecuta las cuatro mediciones de latencia y calcula p50 y p99 |
 | `scripts/measure_e3.sh` | Verifica el clúster y ejecuta automáticamente las mediciones de E3 |
 | `evidence/e3_metrics.csv` | Guarda los resultados de las mediciones de E3 |
-
 | `sql/e4_probe.sql` | Crea la tabla de control de E4 con tres réplicas votantes |
 | `scripts/e4_probe.py` | Ejecuta escrituras continuas y calcula el RTO después de detener un nodo |
 | `evidence/e4-chaos.csv` | Guarda cada intento de escritura, su timestamp, estado y latencia |
 | `evidence/e4-probe.txt` | Contiene la salida completa de la prueba y el RTO observado |
-| `evidence/e4-stop.txt` | Registra los timestamps de la detención de `crdb-2` |
+| `evidence/e4_stop.txt` | Registra los timestamps de la detención del nodo |
 | `evidence/e4-rpo.txt` | Verifica la fila final utilizada para determinar el RPO |
-
+| `docs/comandos-defensa.md` | Referencia con todos los comandos de este README y otros adicionales, listos para usar durante la defensa (incluye la versión para PowerShell) |
 
 ---
 
 ## Cómo levantar el proyecto
 
-Se ejecuta el script de configuración:
+Se ejecuta el script de configuración.
 
+En Linux/Mac:
 ```bash
 ./scripts/setup.sh
+```
+
+En Windows (PowerShell), usando Git Bash:
+```powershell
+& "C:\Program Files\Git\bin\bash.exe" scripts/setup.sh
 ```
 
 El script realiza automáticamente los siguientes pasos:
@@ -76,7 +89,6 @@ tienda-b    100
 ```
 
 Por lo tanto, se cargan 300 pedidos en total, con 100 pedidos asociados a cada región.
-
 
 ### Evidencia de E2
 
@@ -135,19 +147,25 @@ Esta evidencia comprueba que los datos de prueba fueron cargados correctamente e
 
 ---
 ### Fallo de sitio, E4
-Para esta prueba se utilizó la tabla de control `e4_probe`, almacenada en la base de datos `ti4601_e4`. La tabla se configuró con tres réplicas votantes, una en cada nodo,para el caso en la que un n nodo falle.
+Para esta prueba se utilizó la tabla de control `e4_probe`, almacenada en la base de datos `ti4601_e4`. La tabla se configuró con tres réplicas votantes, una en cada nodo, para el caso en la que un nodo falle.
 
-La falla de sitio se simuló deteniendo el contenedor `crdb-2`, correspondiente a la región `tienda-b`. Antes de ejecutar la prueba, se verificó que el rango tuviera las réplicas `{1,2,3}` y que el nodo 2 fuera el poseedor del lease.
+La falla de sitio se simuló deteniendo el contenedor que tenía el lease del rango de control en el momento de la prueba (en la ejecución documentada fue `crdb-2`, correspondiente a `tienda-b`). Antes de ejecutar la prueba, se verificó que el rango tuviera las réplicas `{1,2,3}` y que el nodo indicado fuera el poseedor del lease. **El número de nodo puede variar entre ejecuciones**, por lo que siempre debe confirmarse con `cockroach node status` cuál contenedor corresponde antes de detenerlo.
 
 ### Preparación
 
 La tabla de control se crea con:
 
+En Linux/Mac:
 ```bash
 docker compose exec -T crdb-1 ./cockroach sql \
   --insecure \
   --host=crdb-1 \
   < sql/e4_probe.sql
+```
+
+En Windows (PowerShell), el operador `<` no está soportado; usar en su lugar:
+```powershell
+Get-Content sql/e4_probe.sql | docker exec -i ti4601-crdb-1 cockroach sql --insecure --host=crdb-1
 ```
 
 La distribución de las réplicas se consulta con:
@@ -159,7 +177,7 @@ docker compose exec -T crdb-1 ./cockroach sql \
   -e "SELECT range_id, lease_holder, voting_replicas FROM [SHOW RANGES FROM TABLE e4_probe WITH DETAILS];"
 ```
 
-En la ejecución realizada, el rango utilizado fue el número 100. El lease se colocó en el nodo 2 mediante:
+En la ejecución realizada, el rango utilizado fue el número 100. El lease se colocó en el nodo indicado mediante:
 
 ```bash
 docker compose exec -T crdb-1 ./cockroach sql \
@@ -168,7 +186,7 @@ docker compose exec -T crdb-1 ./cockroach sql \
   -e "ALTER RANGE 100 RELOCATE LEASE TO 2;"
 ```
 
-Si el identificador del rango cambia después de reconstruir el clúster, debe utilizarse el valor mostrado por `SHOW RANGES`.
+Si el identificador del rango cambia después de reconstruir el clúster, debe utilizarse el valor mostrado por `SHOW RANGES`. Antes de detener el contenedor, verificar con `cockroach node status --insecure --host=crdb-1` qué contenedor corresponde al número de nodo elegido.
 
 ### Ejecución
 
@@ -189,6 +207,7 @@ docker compose --profile lab1 run --rm --no-deps \
 
 Mientras la sonda realiza escrituras, en una segunda terminal se detiene el nodo:
 
+En Linux/Mac:
 ```bash
 echo "Inicio de la falla: $(date -Iseconds)" \
   | tee evidence/e4-stop.txt
@@ -200,6 +219,12 @@ date +%s.%N > evidence/e4-stop.epoch
 
 echo "Nodo detenido: $(date -Iseconds)" \
   | tee -a evidence/e4-stop.txt
+```
+
+En Windows (PowerShell):
+```powershell
+docker compose --profile lab1 stop -t 0 crdb-2
+[System.DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds() / 1000 | Out-File -Encoding ascii evidence/e4-stop.epoch
 ```
 
 Después de finalizar la sonda, se verifica que la última escritura confirmada siga almacenada:
@@ -217,17 +242,30 @@ docker compose exec -T crdb-1 ./cockroach sql \
 
 Finalmente, se vuelve a levantar el nodo y se elimina el archivo temporal de señal:
 
+En Linux/Mac:
 ```bash
 docker compose --profile lab1 start crdb-2
 rm -f evidence/e4-stop.epoch
+```
+
+En Windows (PowerShell):
+```powershell
+docker compose --profile lab1 start crdb-2
+Remove-Item evidence/e4-stop.epoch -ErrorAction SilentlyContinue
 ```
 
 ## Mediciones de E3
 
 Con el clúster configurado, las mediciones se ejecutan con:
 
+En Linux/Mac:
 ```bash
 bash scripts/measure_e3.sh
+```
+
+En Windows (PowerShell):
+```powershell
+& "C:\Program Files\Git\bin\bash.exe" scripts/measure_e3.sh
 ```
 
 El script realiza 10 corridas de calentamiento y 30 corridas válidas para cada caso:
@@ -250,7 +288,6 @@ Los resultados de p50 y p99 se guardan en `evidence/e3_metrics.csv`.
 
 ---
 
-
 ## Para apagar todo
 
 Para detener los contenedores sin eliminar los volúmenes:
@@ -261,8 +298,14 @@ docker compose --profile lab1 down
 
 Para realizar nuevamente una configuración completamente limpia:
 
+En Linux/Mac:
 ```bash
 ./scripts/setup.sh
+```
+
+En Windows (PowerShell):
+```powershell
+& "C:\Program Files\Git\bin\bash.exe" scripts/setup.sh
 ```
 
 ---
@@ -286,7 +329,6 @@ Implementado para E2:
 - `SHOW RANGES` permite verificar la distribución de réplicas y sus localidades.
 - El procedimiento completo de configuración y generación de evidencia está automatizado mediante `scripts/setup.sh`.
 
-
 Implementado para E3:
 
 - Script automatizado para ejecutar las mediciones.
@@ -300,21 +342,27 @@ Implementado para E3:
 Implementado para E4:
 
 - Tabla de control con tres réplicas votantes.
-- Falla simulada mediante la detención de `crdb-2`.
+- Falla simulada mediante la detención del nodo con el lease de control.
 - Sonda de escrituras continuas con timestamps.
 - RTO observado de aproximadamente 12.0 segundos.
 - RPO observado de cero.
 - Evidencia de la detención, recuperación y conservación de la última escritura confirmada.
 
+Implementado para E5:
+
+- Comparación contra la alternativa de un nodo primario con réplica de lectura, en los ejes de latencia, disponibilidad, complejidad operativa y costo.
+- Conclusión: la distribución está justificada por disponibilidad, no por latencia.
+
+Informe:
+
+- Las cinco secciones (E1 a E5) redactadas en `report/`.
+- Diagrama lógico actualizado con `region` como parte de la PK de `pedido`.
+- Justificación de por qué `producto` es GLOBAL y las otras dos son REGIONAL BY ROW.
+
 ---
 
-## Pendientes
+## Referencia rápida de comandos
 
-
-**E5 — Crítica**
-- Comparación contra la alternativa de un nodo primario con réplica de lectura
-- Conclusión sobre si la distribución estuvo justificada
-
-**Informe**
-- Actualizar el diagrama lógico: `region` ahora es parte de la PK de `pedido`
-- Redactar la justificación de por qué `producto` es GLOBAL y las otras dos RBR
+Para la lista completa de comandos usados en este README y otros
+adicionales para la defensa (verificación de esquema, estado del
+clúster, diagnóstico), ver `docs/comandos-defensa.md`.
